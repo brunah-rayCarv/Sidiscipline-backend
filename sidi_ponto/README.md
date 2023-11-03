@@ -28,5 +28,5 @@ pip install -r requirements.txt
 
 #### Install dependencies
 ```
-python src/app.py
+python sidi_ponto/src/app.py
 ```
