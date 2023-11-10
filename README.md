@@ -26,7 +26,7 @@ venv/Scripts/activate
 pip install -r requirements.txt
 ```
 
-#### Install dependencies
+#### Run app
 ```
-python sidi_ponto/src/app.py
+python ./src/app.py
 ```

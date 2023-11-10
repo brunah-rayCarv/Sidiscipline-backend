@@ -1,17 +1,22 @@
-import os, json
+import json
+import os
+
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 users_database = os.path.join(os.path.dirname(__file__), 'database', 'users.txt')
+
 
 def check_user_credentials(email, password):
     # Read the user data from the text file and check if the credentials match
     try:
-        with open(users_database, 'r', encoding="utf-8") as file:
-            for line in file:
-                user_data = json.loads(line)
-                if user_data.get("email") == email and user_data.get("password") == password:
+        with open(users_database, 'r', encoding="utf-8") as db:
+            file = json.loads(db.read())
+            for data in file:
+                if data.get("email") == email and data.get("password") == password:
                     return True
 
     except Exception as ex:
@@ -64,5 +69,11 @@ def login():
         return response
 
 
+@app.route('/sidi_ponto/v1/users')
+def users():
+    with open(users_database, 'r', encoding='utf-8') as db:
+        return json.loads(db.read())
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
