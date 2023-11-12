@@ -22,5 +22,11 @@
         "name": "Joao Marinho",
         "email": "joao@sidi.org.br",
         "password": "joao123"
+    },
+    {
+        "id": 4,
+        "name": "Arthur",
+        "email": "arthur@sidi.org.br",
+        "password": "arthur123"
     }
 ]
