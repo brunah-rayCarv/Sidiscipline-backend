@@ -7,17 +7,17 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-users_database = os.path.join(os.path.dirname(__file__), 'database', 'users.txt')
+users_database = os.path.join(os.path.dirname(__file__), 'database', 'user.json')
 
 
 def check_user_credentials(email, password):
     # Read the user data from the text file and check if the credentials match
     try:
         with open(users_database, 'r', encoding="utf-8") as db:
-            file = json.loads(db.read())
-            for data in file:
-                if data.get("email") == email and data.get("password") == password:
-                    return True
+            data = json.loads(db.read())
+            for user in data:
+                if user.get('email') == email and user.get('password') == password:
+                    return user
 
     except Exception as ex:
         print("Error on check_user_credentials: ", ex)
@@ -27,7 +27,6 @@ def check_user_credentials(email, password):
 @app.route('/sidi_ponto/v1/cadastro', methods=['POST'])
 def cadastro():
     data = json.loads(request.data)
-    response = None
 
     if 'name' in data and 'email' in data and 'password' in data:
         user = {
@@ -38,8 +37,8 @@ def cadastro():
 
         try:
             with open(users_database, 'a', encoding="utf-8") as json_file:
-                json_file.write(json.dumps(user) + '\n')
-            response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 200}), 200
+                json_file.write(json.dumps(user) + ',\n')
+            response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 201}), 201
             return response
         except Exception as ex:
             print("Error on cadastro: ", ex)
@@ -51,15 +50,14 @@ def cadastro():
 @app.route('/sidi_ponto/v1/login', methods=['POST'])
 def login():
     data = json.loads(request.data)
-    response = None
 
     if 'email' in data and 'password' in data:
         email = data['email']
         password = data['password']
 
-        # Check the user's credentials in the text file
-        if check_user_credentials(email, password):
-            response = jsonify({'message': 'Login successful!', 'status_code': 200, "email": email}), 200
+        user = check_user_credentials(email, password)
+        if user:
+            response = jsonify({'message': 'Login successful!', 'status_code': 200, 'user': user}), 200
             return response
         else:
             response = jsonify({'message': 'Invalid email or password', 'status_code': 401}), 401
