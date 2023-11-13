@@ -88,5 +88,22 @@ def emails():
         return response
 
 
+@app.route('/sidi_ponto/v1/change_password', methods=['PUT'])
+def change_password():
+    data = json.loads(request.data)
+    with open(user_database, 'r', encoding='utf-8') as db:
+        users_db = json.load(db)
+        for user in users_db:
+            if data['email'] in user['email']:
+                user['password'] = data['password']
+                with open(user_database, 'w') as new_db:
+                    json.dump(users_db, new_db, indent=4)
+                response = jsonify({'message': 'Senha trocada com sucesso', 'status_code': 200}), 200
+                return response
+            else:
+                response = jsonify({'message': 'Email não encontrado', 'status_code': 404}), 400
+                return response
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
