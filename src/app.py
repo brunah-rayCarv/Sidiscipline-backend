@@ -35,7 +35,7 @@ def cadastro():
                 if data['email'] in user['email']:
                     response = jsonify({'message': 'E-mail ja registrado', 'status_code': 200}), 200
                     return response
-            user_id = len(data) + 1
+            user_id = len(users_db) + 1
         user = {
             'id': user_id,
             'name': data['name'],
@@ -78,10 +78,14 @@ def login():
         return response
 
 
-@app.route('/sidi_ponto/v1/users', methods=['GET'])
-def users():
+@app.route('/sidi_ponto/v1/emails', methods=['GET'])
+def emails():
     with open(user_database, 'r', encoding='utf-8') as db:
-        return json.load(db)
+        emails_lista = []
+        for user in json.load(db):
+            emails_lista.append(user['email'])
+        response = jsonify({'emails': emails_lista, 'status_code': 200}), 200
+        return response
 
 
 if __name__ == '__main__':
