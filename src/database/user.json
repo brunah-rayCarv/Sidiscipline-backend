@@ -1,26 +1,32 @@
 [
     {
-        "id": 0,
+        "id": 1,
         "name": "Admin",
         "email": "admin@sidi.org.br",
         "password": "admin123"
     },
     {
-        "id": 1,
+        "id": 2,
         "name": "Gustavo 3",
         "email": "gustavo3@sidi.org.br",
         "password": "Sidi1233"
     },
     {
-        "id": 2,
+        "id": 3,
         "name": "Gustavo 4",
         "email": "gustavo4@sidi.org.br",
         "password": "Sidi1234"
     },
     {
-        "id": 3,
+        "id": 4,
         "name": "Joao Marinho",
         "email": "joao@sidi.org.br",
         "password": "joao123"
+    },
+    {
+        "id": 5,
+        "name": "Arthur",
+        "email": "arthur@sidi.org.br",
+        "password": "arthur123"
     }
 ]

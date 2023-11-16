@@ -7,17 +7,18 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-users_database = os.path.join(os.path.dirname(__file__), 'database', 'users.txt')
+user_database = os.path.join(os.path.dirname(__file__), 'database', 'user.json')
+ponto_database = os.path.join(os.path.dirname(__file__), 'database', 'ponto.json')
 
 
 def check_user_credentials(email, password):
     # Read the user data from the text file and check if the credentials match
     try:
-        with open(users_database, 'r', encoding="utf-8") as db:
-            file = json.loads(db.read())
-            for data in file:
-                if data.get("email") == email and data.get("password") == password:
-                    return True
+        with open(user_database, 'r', encoding="utf-8") as db:
+            data = json.load(db)
+            for user in data:
+                if user.get('email') == email and user.get('password') == password:
+                    return user
 
     except Exception as ex:
         print("Error on check_user_credentials: ", ex)
@@ -27,22 +28,32 @@ def check_user_credentials(email, password):
 @app.route('/sidi_ponto/v1/cadastro', methods=['POST'])
 def cadastro():
     data = json.loads(request.data)
-    response = None
 
     if 'name' in data and 'email' in data and 'password' in data:
+        with open(user_database, 'r', encoding='utf-8') as db:
+            users_db = json.load(db)
+            for user in users_db:
+                if data['email'] in user['email']:
+                    response = jsonify({'message': 'E-mail ja registrado', 'status_code': 200}), 200
+                    return response
+            user_id = len(users_db) + 1
         user = {
+            'id': user_id,
             'name': data['name'],
-            'email_': data['email'],
+            'email': data['email'],
             'password': data['password']
         }
 
         try:
-            with open(users_database, 'a', encoding="utf-8") as json_file:
-                json_file.write(json.dumps(user) + '\n')
-            response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 200}), 200
+            with open(user_database, 'r+', encoding='utf-8') as db:
+                users_db = json.load(db)
+                users_db.append(user)
+                db.seek(0)
+                json.dump(users_db, db, indent=4)
+            response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 201}), 201
             return response
         except Exception as ex:
-            print("Error on cadastro: ", ex)
+            print('Error on cadastro: ', ex)
 
     response = jsonify({'message': 'Erro nome, email, or senha', 'status_code': 400}), 400
     return response
@@ -51,15 +62,14 @@ def cadastro():
 @app.route('/sidi_ponto/v1/login', methods=['POST'])
 def login():
     data = json.loads(request.data)
-    response = None
 
     if 'email' in data and 'password' in data:
         email = data['email']
         password = data['password']
 
-        # Check the user's credentials in the text file
-        if check_user_credentials(email, password):
-            response = jsonify({'message': 'Login successful!', 'status_code': 200, "email": email}), 200
+        user = check_user_credentials(email, password)
+        if user:
+            response = jsonify({'message': 'Login successful!', 'status_code': 200, 'user': user}), 200
             return response
         else:
             response = jsonify({'message': 'Invalid email or password', 'status_code': 401}), 401
@@ -69,11 +79,41 @@ def login():
         return response
 
 
-@app.route('/sidi_ponto/v1/users')
-def users():
-    with open(users_database, 'r', encoding='utf-8') as db:
-        return json.loads(db.read())
+@app.route('/sidi_ponto/v1/emails', methods=['GET'])
+def emails():
+    with open(user_database, 'r', encoding='utf-8') as db:
+        emails_lista = []
+        for user in json.load(db):
+            emails_lista.append(user['email'])
+        response = jsonify({'emails': emails_lista, 'status_code': 200}), 200
+        return response
 
+
+@app.route('/sidi_ponto/v1/change_password', methods=['PUT'])
+def change_password():
+    data = json.loads(request.data)
+    with open(user_database, 'r+', encoding='utf-8') as db:
+        users_db = json.load(db)
+        for user in users_db:
+            if data['email'] in user['email']:
+                user['password'] = data['password']
+                db.seek(0)
+                json.dump(users_db, db, indent=4)
+                db.truncate()
+                response = jsonify({'message': 'Senha trocada com sucesso', 'status_code': 200}), 200
+                return response
+            else:
+                response = jsonify({'message': 'Email não encontrado', 'status_code': 404}), 400
+                return response
+
+
+@app.route('/sidi_ponto/v1/pontos', methods=['GET'])
+def pontos():
+    with open(ponto_database, 'r', encoding='utf-8') as db:
+        for pontos_db in json.load(db):
+            if pontos_db['user_id'] == 1:
+                user_id, user_pontos = pontos_db.values()
+                return jsonify({"user": user_id, "pontos": user_pontos, 'status_code': 200}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
