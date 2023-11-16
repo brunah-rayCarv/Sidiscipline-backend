@@ -8,6 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 user_database = os.path.join(os.path.dirname(__file__), 'database', 'user.json')
+ponto_database = os.path.join(os.path.dirname(__file__), 'database', 'ponto.json')
 
 
 def check_user_credentials(email, password):
@@ -91,19 +92,28 @@ def emails():
 @app.route('/sidi_ponto/v1/change_password', methods=['PUT'])
 def change_password():
     data = json.loads(request.data)
-    with open(user_database, 'r', encoding='utf-8') as db:
+    with open(user_database, 'r+', encoding='utf-8') as db:
         users_db = json.load(db)
         for user in users_db:
             if data['email'] in user['email']:
                 user['password'] = data['password']
-                with open(user_database, 'w') as new_db:
-                    json.dump(users_db, new_db, indent=4)
+                db.seek(0)
+                json.dump(users_db, db, indent=4)
+                db.truncate()
                 response = jsonify({'message': 'Senha trocada com sucesso', 'status_code': 200}), 200
                 return response
             else:
                 response = jsonify({'message': 'Email não encontrado', 'status_code': 404}), 400
                 return response
 
+
+@app.route('/sidi_ponto/v1/pontos', methods=['GET'])
+def pontos():
+    with open(ponto_database, 'r', encoding='utf-8') as db:
+        for pontos_db in json.load(db):
+            if pontos_db['user_id'] == 1:
+                user_id, user_pontos = pontos_db.values()
+                return jsonify({"user": user_id, "pontos": user_pontos, 'status_code': 200}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
