@@ -57,7 +57,7 @@ def cadastro():
                 json.dump(users_db, db, indent=4)
             with open(ponto_database, 'r+', encoding='utf-8') as db:
                 pontos_db = json.load(db)
-                pontos_db.append(user_database)
+                pontos_db.append(user_ponto)
                 db.seek(0)
                 json.dump(pontos_db, db, indent=4)
             response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 201}), 201
