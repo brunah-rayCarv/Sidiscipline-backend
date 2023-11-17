@@ -1,27 +1,7 @@
 [
-  {
-    "user_id": 1,
-    "pontos": [
-      {
-      "data": "14/11/2023",
-      "horario_entrada": "07:00",
-      "horario_saida": "15:00"
-      },
-      {
-        "data": "15/11/2023",
-        "horario_entrada": "06:00",
-        "horario_saida": "14:00"
-      }
-    ]
-  },
-  {
-    "user_id": 2,
-    "pontos": [
-      {
-        "data": "14/11/2023",
-        "horario_entrada": "08:00",
-        "horario_saida": "16:00"
-      }
-    ]
-  }
+    {
+        "user_id": 1,
+        "pontos": [],
+        "faltas": []
+    }
 ]
