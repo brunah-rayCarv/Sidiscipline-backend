@@ -43,6 +43,11 @@ def cadastro():
             'email': data['email'],
             'password': data['password']
         }
+        user_ponto = {
+            'user_id': user_id,
+            'pontos': [],
+            'faltas': []
+        }
 
         try:
             with open(user_database, 'r+', encoding='utf-8') as db:
@@ -50,6 +55,11 @@ def cadastro():
                 users_db.append(user)
                 db.seek(0)
                 json.dump(users_db, db, indent=4)
+            with open(ponto_database, 'r+', encoding='utf-8') as db:
+                pontos_db = json.load(db)
+                pontos_db.append(user_database)
+                db.seek(0)
+                json.dump(pontos_db, db, indent=4)
             response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 201}), 201
             return response
         except Exception as ex:
@@ -107,13 +117,111 @@ def change_password():
                 return response
 
 
-@app.route('/sidi_ponto/v1/pontos', methods=['GET'])
-def pontos():
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['GET'])
+def get_all_pontos(user_id):
     with open(ponto_database, 'r', encoding='utf-8') as db:
         for pontos_db in json.load(db):
-            if pontos_db['user_id'] == 1:
-                user_id, user_pontos = pontos_db.values()
-                return jsonify({"user": user_id, "pontos": user_pontos, 'status_code': 200}), 200
+            if pontos_db['user_id'] == user_id:
+                user, user_pontos, user_faltas = pontos_db.values()
+                response = jsonify({"user": user, "pontos": user_pontos,
+                                    "faltas": user_faltas, 'status_code': 200}), 200
+                return response
+
+
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['GET'])
+def get_ponto_data(user_id):
+    data = request.args.get('dt')
+    with open(ponto_database, 'r', encoding='utf-8') as db:
+        for pontos_db in json.load(db):
+            if pontos_db['user_id'] == user_id:
+                user_pontos = pontos_db.get('pontos')
+                for ponto_data in user_pontos:
+                    if ponto_data['data'] == data:
+                        response = jsonify({'ponto': ponto_data, 'status_code': 200}), 200
+                        return response
+                response = jsonify({"message": 'data não encontrada/registrada', 'status_code': 404}), 404
+                return response
+
+
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['POST'])
+def save_entrada(user_id):
+    data = json.loads(request.data)
+    with open(ponto_database, 'r+', encoding='utf-8') as db:
+        pontos_db = json.load(db)
+        for pontos in pontos_db:
+            if pontos['user_id'] == user_id:
+                user_pontos = pontos.get('pontos')
+                for ponto_data in user_pontos:
+                    if ponto_data.get('data') == data['date']:
+                        response = jsonify({'message': 'data já registrada', 'status_code': 200}), 200
+                        return response
+                novo_ponto = {
+                    'data': data['date'],
+                    'horario_entrada': data['entrada'],
+                    'location_entrada': data['location'],
+                    'horario_saida': '',
+                    'location_saida': {}
+                }
+                user_pontos.append(novo_ponto)
+                db.seek(0)
+                json.dump(pontos_db, db, indent=4)
+                db.truncate()
+                reponse = jsonify({'message': 'ponto salvo', 'status_code': 200}), 200
+                return reponse
+
+
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['PUT'])
+def save_saida(user_id):
+    data = json.loads(request.data)
+    with open(ponto_database, 'r+', encoding='utf-8') as db:
+        pontos_db = json.load(db)
+        for pontos in pontos_db:
+            if pontos['user_id'] == user_id:
+                user_pontos = pontos.get('pontos')
+                for ponto_data in user_pontos:
+                    if ponto_data['data'] == data['date']:
+                        if ponto_data['horario_saida']:
+                            response = jsonify({'message': 'horario de saida já foi registrado',
+                                                'status_code': 200}), 200
+                            return response
+                        ponto_data['horario_saida'] = data['saida']
+                        ponto_data['location_saida'] = data['location']
+                        db.seek(0)
+                        json.dump(pontos_db, db, indent=4)
+                        db.truncate()
+                        response = jsonify({'message': 'horario de saida registrado', 'status_code': 200}), 200
+                        return response
+                response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
+                return response
+
+
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['PUT'])
+def ajustrar_ponto(user_id):
+    entrada = request.args.get('ent')
+    date = request.args.get('dt')
+    data = json.loads(request.data)
+    with open(ponto_database, 'r+', encoding='utf-8') as db:
+        pontos_db = json.load(db)
+        for pontos in pontos_db:
+            if pontos['user_id'] == user_id:
+                user_pontos = pontos.get('pontos')
+                for ponto_data in user_pontos:
+                    if ponto_data['data'] == date:
+                        if entrada:
+                            ponto_data['horario_entrada'] = data['horario']
+                            ponto_data['location_entrada'] = data['location']
+                        else:
+                            ponto_data['horario_saida'] = data['horario']
+                            ponto_data['location_saida'] = data['location']
+                        ponto_data['justificativa'] = data['justificativa']
+                        db.seek(0)
+                        json.dump(pontos_db, db, indent=4)
+                        db.truncate()
+                        response = jsonify({'message': 'ponto ajustrado', 'status_code': 200}), 200
+                        return response
+                response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
+                return response
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

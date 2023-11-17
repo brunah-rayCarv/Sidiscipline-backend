@@ -1,27 +1,84 @@
 [
-  {
-    "user_id": 1,
-    "pontos": [
-      {
-      "data": "14/11/2023",
-      "horario_entrada": "07:00",
-      "horario_saida": "15:00"
-      },
-      {
-        "data": "15/11/2023",
-        "horario_entrada": "06:00",
-        "horario_saida": "14:00"
-      }
-    ]
-  },
-  {
-    "user_id": 2,
-    "pontos": [
-      {
-        "data": "14/11/2023",
-        "horario_entrada": "08:00",
-        "horario_saida": "16:00"
-      }
-    ]
-  }
+    {
+        "user_id": 1,
+        "pontos": [
+            {
+                "data": "13/11/2023",
+                "horario_entrada": "08:00",
+                "location_entrada": {
+                    "latitude": 1,
+                    "longitude": 2
+                },
+                "horario_saida": "16:00",
+                "location_saida": {
+                    "latitude": 1,
+                    "longitude": 2
+                }
+            },
+            {
+                "data": "15/11/2023",
+                "horario_entrada": "07:00",
+                "location_entrada": {
+                    "latitude": 1,
+                    "longitude": 2
+                },
+                "horario_saida": "15:00",
+                "location_saida": {
+                    "latitude": 1,
+                    "longitude": 2
+                }
+            },
+            {
+                "data": "16/11/2023",
+                "horario_entrada": "6:22",
+                "location_entrada": {
+                    "latitude": 5,
+                    "longitude": 5
+                },
+                "horario_saida": "14:24",
+                "location_saida": {
+                    "latitude": 51,
+                    "longitude": 51
+                },
+                "justificativa": "teste"
+            }
+        ],
+        "faltas": [
+            {
+                "data": "14/11/2023",
+                "situacao": "N\u00e3o Justificado",
+                "justificacao": ""
+            }
+        ]
+    },
+    {
+        "user_id": 2,
+        "pontos": [
+            {
+                "data": "16/11/2023",
+                "horario_entrada": "06:00",
+                "location_entrada": {
+                    "latitude": 1,
+                    "longitude": 2
+                },
+                "horario_saida": "14:00",
+                "location_saida": {
+                    "latitude": 1,
+                    "longitude": 2
+                }
+            }
+        ],
+        "faltas": [
+            {
+                "data": "14/11/2023",
+                "situacao": "N\u00e3o Justificado",
+                "justificacao": ""
+            }
+        ]
+    },
+    {
+    "user_id": 6,
+        "pontos": [],
+        "faltas": []
+    }
 ]
