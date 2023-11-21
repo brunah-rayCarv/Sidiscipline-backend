@@ -4,6 +4,8 @@ import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+from datetime import date
+
 app = Flask(__name__)
 CORS(app)
 
@@ -23,6 +25,40 @@ def check_user_credentials(email, password):
     except Exception as ex:
         print("Error on check_user_credentials: ", ex)
     return False
+
+
+def check_for_absent(user_id):
+    today = date.today()
+    previous_date = today.replace(day=today.day - 1)
+    try:
+        with open(ponto_database, 'r+', encoding='utf-8') as db:
+            pontos_db = json.load(db)
+            for pontos in pontos_db:
+                if pontos['user_id'] == user_id:
+
+                    if not pontos['faltas'] or pontos['faltas'][-1]['data'] != '{}/{}/{}'.format(previous_date.day,
+                                                                                                 previous_date.month,
+                                                                                                 previous_date.year):
+                        user_pontos = pontos.get('pontos')
+                        day, month, year = user_pontos[-1]['data'].split('/')
+                        last_date = date(int(year), int(month), int(day))
+                        diff_days = (previous_date - last_date).days
+                        if diff_days > 0:
+                            for i in range(1, diff_days + 1):
+                                absent_date = last_date.replace(day=last_date.day + i)
+                                absent = {
+                                    'data': '{}/{}/{}'.format(absent_date.day,
+                                                              absent_date.month,
+                                                              absent_date.year),
+                                    'situacao': 'não justificado',
+                                    'justificado': ''
+                                }
+                                pontos['faltas'].append(absent)
+                            db.seek(0)
+                            json.dump(pontos_db, db, indent=4, ensure_ascii=False)
+                            db.truncate()
+    except Exception as ex:
+        print('Erro on check_for_absent', ex)
 
 
 @app.route('/sidi_ponto/v1/cadastro', methods=['POST'])
@@ -198,7 +234,7 @@ def save_saida(user_id):
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['PUT'])
 def ajustrar_ponto(user_id):
     entrada = request.args.get('ent')
-    date = request.args.get('dt')
+    date_request = request.args.get('dt')
     data = json.loads(request.data)
     with open(ponto_database, 'r+', encoding='utf-8') as db:
         pontos_db = json.load(db)
@@ -206,7 +242,7 @@ def ajustrar_ponto(user_id):
             if pontos['user_id'] == user_id:
                 user_pontos = pontos.get('pontos')
                 for ponto_data in user_pontos:
-                    if ponto_data['data'] == date:
+                    if ponto_data['data'] == date_request:
                         if entrada:
                             ponto_data['horario_entrada'] = data['horario']
                             ponto_data['location_entrada'] = data['location']
