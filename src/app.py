@@ -2,21 +2,23 @@ import json
 import os
 
 from flask import Flask, jsonify, request
+from werkzeug.utils import secure_filename
 from flask_cors import CORS
 
-from datetime import date
+from datetime import date, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
-user_database = os.path.join(os.path.dirname(__file__), 'database', 'user.json')
-ponto_database = os.path.join(os.path.dirname(__file__), 'database', 'ponto.json')
+USER_DATABASE = os.path.join(os.path.dirname(__file__), 'database', 'user.json')
+PONTO_DATABASE = os.path.join(os.path.dirname(__file__), 'database', 'ponto.json')
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 
 
 def check_user_credentials(email, password):
     # Read the user data from the text file and check if the credentials match
     try:
-        with open(user_database, 'r', encoding="utf-8") as db:
+        with open(USER_DATABASE, 'r', encoding="utf-8") as db:
             data = json.load(db)
             for user in data:
                 if user.get('email') == email and user.get('password') == password:
@@ -29,29 +31,29 @@ def check_user_credentials(email, password):
 
 def check_for_absent(user_id):
     today = date.today()
-    previous_date = today.replace(day=today.day - 1)
+    yesterday = today - timedelta(days=1)
     try:
-        with open(ponto_database, 'r+', encoding='utf-8') as db:
+        with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
             pontos_db = json.load(db)
             for pontos in pontos_db:
                 if pontos['user_id'] == user_id:
 
-                    if not pontos['faltas'] or pontos['faltas'][-1]['data'] != '{}/{}/{}'.format(previous_date.day,
-                                                                                                 previous_date.month,
-                                                                                                 previous_date.year):
+                    if not pontos['faltas'] or pontos['faltas'][-1]['data'] != '{}/{}/{}'.format(yesterday.day,
+                                                                                                 yesterday.month,
+                                                                                                 yesterday.year):
                         user_pontos = pontos.get('pontos')
                         day, month, year = user_pontos[-1]['data'].split('/')
                         last_date = date(int(year), int(month), int(day))
-                        diff_days = (previous_date - last_date).days
+                        diff_days = (yesterday - last_date).days
                         if diff_days > 0:
                             for i in range(1, diff_days + 1):
-                                absent_date = last_date.replace(day=last_date.day + i)
+                                absent_date = last_date + timedelta(days=i)
                                 absent = {
                                     'data': '{}/{}/{}'.format(absent_date.day,
                                                               absent_date.month,
                                                               absent_date.year),
                                     'situacao': 'não justificado',
-                                    'justificado': ''
+                                    'anexo': ''
                                 }
                                 pontos['faltas'].append(absent)
                             db.seek(0)
@@ -66,7 +68,7 @@ def cadastro():
     data = json.loads(request.data)
 
     if 'name' in data and 'email' in data and 'password' in data:
-        with open(user_database, 'r', encoding='utf-8') as db:
+        with open(USER_DATABASE, 'r', encoding='utf-8') as db:
             users_db = json.load(db)
             for user in users_db:
                 if data['email'] in user['email']:
@@ -86,16 +88,16 @@ def cadastro():
         }
 
         try:
-            with open(user_database, 'r+', encoding='utf-8') as db:
+            with open(USER_DATABASE, 'r+', encoding='utf-8') as db:
                 users_db = json.load(db)
                 users_db.append(user)
                 db.seek(0)
-                json.dump(users_db, db, indent=4)
-            with open(ponto_database, 'r+', encoding='utf-8') as db:
+                json.dump(users_db, db, indent=4, ensure_ascii=False)
+            with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
                 pontos_db = json.load(db)
                 pontos_db.append(user_ponto)
                 db.seek(0)
-                json.dump(pontos_db, db, indent=4)
+                json.dump(pontos_db, db, indent=4, ensure_ascii=False)
             response = jsonify({'message': 'Usuário cadastrado com sucesso!', 'status_code': 201}), 201
             return response
         except Exception as ex:
@@ -115,6 +117,7 @@ def login():
 
         user = check_user_credentials(email, password)
         if user:
+            check_for_absent(user['id'])
             response = jsonify({'message': 'Login successful!', 'status_code': 200, 'user': user}), 200
             return response
         else:
@@ -127,7 +130,7 @@ def login():
 
 @app.route('/sidi_ponto/v1/emails', methods=['GET'])
 def emails():
-    with open(user_database, 'r', encoding='utf-8') as db:
+    with open(USER_DATABASE, 'r', encoding='utf-8') as db:
         emails_lista = []
         for user in json.load(db):
             emails_lista.append(user['email'])
@@ -138,13 +141,13 @@ def emails():
 @app.route('/sidi_ponto/v1/change_password', methods=['PUT'])
 def change_password():
     data = json.loads(request.data)
-    with open(user_database, 'r+', encoding='utf-8') as db:
+    with open(USER_DATABASE, 'r+', encoding='utf-8') as db:
         users_db = json.load(db)
         for user in users_db:
             if data['email'] in user['email']:
                 user['password'] = data['password']
                 db.seek(0)
-                json.dump(users_db, db, indent=4)
+                json.dump(users_db, db, indent=4, ensure_ascii=False)
                 db.truncate()
                 response = jsonify({'message': 'Senha trocada com sucesso', 'status_code': 200}), 200
                 return response
@@ -155,7 +158,7 @@ def change_password():
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['GET'])
 def get_all_pontos(user_id):
-    with open(ponto_database, 'r', encoding='utf-8') as db:
+    with open(PONTO_DATABASE, 'r', encoding='utf-8') as db:
         for pontos_db in json.load(db):
             if pontos_db['user_id'] == user_id:
                 user, user_pontos, user_faltas = pontos_db.values()
@@ -167,7 +170,7 @@ def get_all_pontos(user_id):
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['GET'])
 def get_ponto_data(user_id):
     data = request.args.get('dt')
-    with open(ponto_database, 'r', encoding='utf-8') as db:
+    with open(PONTO_DATABASE, 'r', encoding='utf-8') as db:
         for pontos_db in json.load(db):
             if pontos_db['user_id'] == user_id:
                 user_pontos = pontos_db.get('pontos')
@@ -182,7 +185,7 @@ def get_ponto_data(user_id):
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['POST'])
 def save_entrada(user_id):
     data = json.loads(request.data)
-    with open(ponto_database, 'r+', encoding='utf-8') as db:
+    with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
         pontos_db = json.load(db)
         for pontos in pontos_db:
             if pontos['user_id'] == user_id:
@@ -200,7 +203,7 @@ def save_entrada(user_id):
                 }
                 user_pontos.append(novo_ponto)
                 db.seek(0)
-                json.dump(pontos_db, db, indent=4)
+                json.dump(pontos_db, db, indent=4, ensure_ascii=False)
                 db.truncate()
                 reponse = jsonify({'message': 'ponto salvo', 'status_code': 200}), 200
                 return reponse
@@ -209,7 +212,7 @@ def save_entrada(user_id):
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['PUT'])
 def save_saida(user_id):
     data = json.loads(request.data)
-    with open(ponto_database, 'r+', encoding='utf-8') as db:
+    with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
         pontos_db = json.load(db)
         for pontos in pontos_db:
             if pontos['user_id'] == user_id:
@@ -223,7 +226,7 @@ def save_saida(user_id):
                         ponto_data['horario_saida'] = data['saida']
                         ponto_data['location_saida'] = data['location']
                         db.seek(0)
-                        json.dump(pontos_db, db, indent=4)
+                        json.dump(pontos_db, db, indent=4, ensure_ascii=False)
                         db.truncate()
                         response = jsonify({'message': 'horario de saida registrado', 'status_code': 200}), 200
                         return response
@@ -236,7 +239,7 @@ def ajustrar_ponto(user_id):
     entrada = request.args.get('ent')
     date_request = request.args.get('dt')
     data = json.loads(request.data)
-    with open(ponto_database, 'r+', encoding='utf-8') as db:
+    with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
         pontos_db = json.load(db)
         for pontos in pontos_db:
             if pontos['user_id'] == user_id:
@@ -251,12 +254,22 @@ def ajustrar_ponto(user_id):
                             ponto_data['location_saida'] = data['location']
                         ponto_data['justificativa'] = data['justificativa']
                         db.seek(0)
-                        json.dump(pontos_db, db, indent=4)
+                        json.dump(pontos_db, db, indent=4, ensure_ascii=False)
                         db.truncate()
                         response = jsonify({'message': 'ponto ajustrado', 'status_code': 200}), 200
                         return response
                 response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
                 return response
+
+
+@app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['POST'])
+def salvar_anexo_falta(user_id):
+    date_request = request.args.get('dt')
+    files = request.files.values()
+    for file in files:
+        save_path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
+        file.save(save_path)
+    return jsonify({'message': 'ok'}), 200
 
 
 if __name__ == '__main__':
