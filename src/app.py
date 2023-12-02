@@ -1,7 +1,7 @@
 import json
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
 
@@ -49,11 +49,11 @@ def check_for_absent(user_id):
                             for i in range(1, diff_days + 1):
                                 absent_date = last_date + timedelta(days=i)
                                 absent = {
-                                    'data': '{}/{}/{}'.format(absent_date.day,
-                                                              absent_date.month,
-                                                              absent_date.year),
+                                    'data': '{:02d}/{:02d}/{}'.format(absent_date.day,
+                                                                      absent_date.month,
+                                                                      absent_date.year),
                                     'situacao': 'não justificado',
-                                    'anexo': ''
+                                    'anexo': []
                                 }
                                 pontos['faltas'].append(absent)
                             db.seek(0)
@@ -79,7 +79,8 @@ def cadastro():
             'id': user_id,
             'name': data['name'],
             'email': data['email'],
-            'password': data['password']
+            'password': data['password'],
+            'avatar': ''
         }
         user_ponto = {
             'user_id': user_id,
@@ -156,6 +157,17 @@ def change_password():
                 return response
 
 
+@app.route('/sidi_ponto/v1/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    data = json.loads(request.data)
+    with open(USER_DATABASE, 'r+', encoding='utf-8') as db:
+        users_db = json.load(db)
+        for user in users_db:
+            if user['user_id'] == user_id:
+                pass
+        response = jsonify({'message': 'user não encontrado/registrada'})
+
+
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['GET'])
 def get_all_pontos(user_id):
     with open(PONTO_DATABASE, 'r', encoding='utf-8') as db:
@@ -165,6 +177,8 @@ def get_all_pontos(user_id):
                 response = jsonify({"user": user, "pontos": user_pontos,
                                     "faltas": user_faltas, 'status_code': 200}), 200
                 return response
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['GET'])
@@ -180,6 +194,8 @@ def get_ponto_data(user_id):
                         return response
                 response = jsonify({"message": 'data não encontrada/registrada', 'status_code': 404}), 404
                 return response
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['POST'])
@@ -207,6 +223,8 @@ def save_entrada(user_id):
                 db.truncate()
                 reponse = jsonify({'message': 'ponto salvo', 'status_code': 200}), 200
                 return reponse
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['PUT'])
@@ -232,6 +250,8 @@ def save_saida(user_id):
                         return response
                 response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
                 return response
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['PUT'])
@@ -260,16 +280,51 @@ def ajustrar_ponto(user_id):
                         return response
                 response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
                 return response
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
+
+
+def armazenar_anexo(user_id, file, date_request):
+    try:
+        if not os.path.isdir(os.path.join(UPLOAD_FOLDER, 'absent_attachment', str(user_id))):
+            raise FileNotFoundError
+    except FileNotFoundError:
+        os.mkdir(os.path.join(UPLOAD_FOLDER, 'absent_attachment', str(user_id)))
+    finally:
+        file.filename = '{}-{}'.format(date_request, file.filename)
+        save_path = os.path.join(UPLOAD_FOLDER, 'absent_attachment', str(user_id), secure_filename(file.filename))
+        file.save(save_path)
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>/', methods=['POST'])
-def salvar_anexo_falta(user_id):
+def upload_anexo_falta(user_id):
     date_request = request.args.get('dt')
-    files = request.files.values()
-    for file in files:
-        save_path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
-        file.save(save_path)
-    return jsonify({'message': 'ok'}), 200
+    file = request.files.get('file')
+    with open(PONTO_DATABASE, 'r+', encoding='utf-8') as db:
+        pontos_db = json.load(db)
+        for pontos in pontos_db:
+            if pontos['user_id'] == user_id:
+                user_faltas = pontos.get('faltas')
+                for faltas_data in user_faltas:
+                    if faltas_data['data'] == date_request:
+                        armazenar_anexo(user_id, file, date_request)
+                        anexo_path = os.listdir(os.path.join(UPLOAD_FOLDER, 'absent_attachment', str(user_id)))
+                        faltas_data['anexo'] = anexo_path
+                        faltas_data['situacao'] = 'em analise'
+                        db.seek(0)
+                        json.dump(pontos_db, db, indent=4, ensure_ascii=False)
+                        db.truncate()
+                        response = jsonify({'message': 'anexo salvo', 'status_code': 200}), 200
+                        return response
+                response = jsonify({'message': 'data não encontrada/registrada', 'status_code': 404}), 404
+                return response
+        response = jsonify({'message': 'user não encontrado/registrado', 'status_code': 404}), 404
+        return response
+
+
+@app.route('/sidi_ponto/v1/pontos/<user_id>/<folder>/<filename>', methods=['GET'])
+def load_file(user_id, folder, filename):
+    return send_file(os.path.join(UPLOAD_FOLDER, folder, user_id, filename))
 
 
 if __name__ == '__main__':
