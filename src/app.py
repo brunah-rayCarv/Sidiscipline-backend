@@ -43,9 +43,12 @@ def check_for_absent(user_id):
                                                                                  yesterday.year):
                         user_pontos = pontos.get('pontos')
                         day, month, year = user_pontos[-1]['data'].split('/')
+                        user_faltas = pontos.get('faltas')
+                        abs_day, abs_month, abs_year = user_faltas[-1]['data'].split('/')
+                        last_absent = date(int(abs_year), int(abs_month), int(abs_day))
                         last_date = date(int(year), int(month), int(day))
                         diff_days = (yesterday - last_date).days
-                        if diff_days > 0 and last_date != yesterday:
+                        if diff_days > 0 and last_absent != yesterday:
                             for i in range(1, diff_days + 1):
                                 absent_date = last_date + timedelta(days=i)
                                 absent = {
