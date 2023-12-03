@@ -37,15 +37,15 @@ def check_for_absent(user_id):
             pontos_db = json.load(db)
             for pontos in pontos_db:
                 if pontos['user_id'] == user_id:
-
-                    if not pontos['faltas'] or pontos['faltas'][-1]['data'] != '{}/{}/{}'.format(yesterday.day,
-                                                                                                 yesterday.month,
-                                                                                                 yesterday.year):
+                    if not pontos['faltas'] != [] \
+                            or pontos['faltas'][-1]['data'] != '{}/{}/{}'.format(yesterday.day,
+                                                                                 yesterday.month,
+                                                                                 yesterday.year):
                         user_pontos = pontos.get('pontos')
                         day, month, year = user_pontos[-1]['data'].split('/')
                         last_date = date(int(year), int(month), int(day))
                         diff_days = (yesterday - last_date).days
-                        if diff_days > 0:
+                        if diff_days > 0 and last_date != yesterday:
                             for i in range(1, diff_days + 1):
                                 absent_date = last_date + timedelta(days=i)
                                 absent = {
@@ -157,15 +157,53 @@ def change_password():
                 return response
 
 
+def armazenar_avatar(user_id, file):
+    _, ext = os.path.splitext(file.filename)
+    for fname in os.listdir(os.path.join(UPLOAD_FOLDER, 'avatars')):
+        if fname.startswith('avatar-{}'.format(user_id)):
+            os.remove(os.path.join(UPLOAD_FOLDER, 'avatars', fname))
+    file.filename = 'avatar-{}{}'.format(user_id, ext)
+    save_path = os.path.join(UPLOAD_FOLDER, 'avatars', secure_filename(file.filename))
+    file.save(save_path)
+    return save_path
+
+
+@app.route('/sidi_ponto/v1/<int:user_id>', methods=['POST'])
+def upload_avatar(user_id):
+    file = request.files.get('file')
+    with open(USER_DATABASE, 'r+', encoding='utf-8') as db:
+        users_db = json.load(db)
+        for user in users_db:
+            if user['id'] == user_id:
+                path = armazenar_avatar(user_id, file)
+                _, avatar = os.path.split(path)
+                user['avatar'] = avatar
+                db.seek(0)
+                json.dump(users_db, db, indent=4, ensure_ascii=False)
+                db.truncate()
+                response = jsonify({'message': 'avatar salvo', 'avatar': user['avatar'], 'status_code': 200}), 200
+                return response
+        response = jsonify({'message': 'user não encontrado/registrada'})
+        return response
+
+
 @app.route('/sidi_ponto/v1/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     data = json.loads(request.data)
     with open(USER_DATABASE, 'r+', encoding='utf-8') as db:
         users_db = json.load(db)
         for user in users_db:
-            if user['user_id'] == user_id:
-                pass
+            if user['id'] == user_id:
+                user['name'] = data['username']
+                user['email'] = data['email']
+                user['password'] = data['password']
+                db.seek(0)
+                json.dump(users_db, db, indent=4, ensure_ascii=False)
+                db.truncate()
+                response = jsonify({'message': 'Dados do user atulizados', 'user': user, 'status_code': 200}), 200
+                return response
         response = jsonify({'message': 'user não encontrado/registrada'})
+        return response
 
 
 @app.route('/sidi_ponto/v1/pontos/<int:user_id>', methods=['GET'])
@@ -324,7 +362,10 @@ def upload_anexo_falta(user_id):
 
 @app.route('/sidi_ponto/v1/pontos/<user_id>/<folder>/<filename>', methods=['GET'])
 def load_file(user_id, folder, filename):
-    return send_file(os.path.join(UPLOAD_FOLDER, folder, user_id, filename))
+    if folder == 'avatars':
+        return send_file(os.path.join(UPLOAD_FOLDER, folder, filename))
+    else:
+        return send_file(os.path.join(UPLOAD_FOLDER, folder, user_id, filename))
 
 
 if __name__ == '__main__':
