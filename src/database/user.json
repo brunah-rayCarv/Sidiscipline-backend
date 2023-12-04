@@ -3,6 +3,7 @@
         "id": 1,
         "name": "Admin",
         "email": "admin@sidi.org.br",
-        "password": "admin123"
+        "password": "admin123",
+        "avatar": ""
     }
 ]
